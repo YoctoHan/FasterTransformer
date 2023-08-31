@@ -196,6 +196,10 @@ add_library(gpt_kernels STATIC gpt_kernels.cu)
 set_property(TARGET gpt_kernels PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET gpt_kernels PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
 
+add_library(star_coder_kernels STATIC star_coder_kernels.cu)
+set_property(TARGET star_coder_kernels PROPERTY POSITION_INDEPENDENT_CODE  ON)
+set_property(TARGET star_coder_kernels PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
+
 add_library(beam_search_penalty_kernels STATIC beam_search_penalty_kernels.cu)
 set_property(TARGET beam_search_penalty_kernels PROPERTY POSITION_INDEPENDENT_CODE  ON)
 set_property(TARGET beam_search_penalty_kernels PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)

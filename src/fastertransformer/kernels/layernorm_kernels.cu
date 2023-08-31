@@ -41,7 +41,6 @@ __global__ void generalAddBiasResidualLayerNormOpt(T* normed_output,
 {
     extern __shared__ __align__(sizeof(float)) char _shmem[];  // Align on largest type
     T*                                              shmem = reinterpret_cast<T*>(_shmem);
-
     __shared__ float s_mean;
     __shared__ float s_variance;
     float            mean     = 0.0f;
@@ -174,7 +173,6 @@ __global__ void generalAddBiasResidualLayerNormOpt2(T* normed_output,
 {
     extern __shared__ __align__(sizeof(float)) char _shmem[];
     T*                                              shmem = reinterpret_cast<T*>(_shmem);
-
     __shared__ float s_mean;
     __shared__ float s_variance;
     float            x_sum    = 0.0f;
@@ -1680,7 +1678,6 @@ void invokeGeneralLayerNorm(T*           out,
             unroll_factor /= 2;
         }
         using T2 = typename TypeConverter<T>::Type;
-
         /* we launch (and instantiate) the kernel by specializing for unroll_factor -> residual_num -> is_bias ->
          * opt_version */
         dispatch_generalAddBiasResidualLayerNormOpt_unroll_factor((T2*)out,

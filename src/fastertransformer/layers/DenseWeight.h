@@ -63,4 +63,18 @@ struct DenseWeight {
     bool fuse_gemm_bias = false;
 };
 
+template<typename T>
+struct MQADenseWeight
+{
+    const T* kernel    = nullptr;
+    const T* bias      = nullptr;
+};
+
+template<typename T>
+struct StarCoderDenseWeight
+{
+    const T* kernel    = nullptr;
+    const T* bias      = nullptr;
+};
+
 }  // namespace fastertransformer

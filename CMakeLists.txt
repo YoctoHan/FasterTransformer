@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+set(BUILD_SHARED_LIBS ON)
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR) # for PyTorch extensions, version should be greater than 3.13
 project(FasterTransformer LANGUAGES CXX CUDA)
 
@@ -328,6 +329,7 @@ add_library(transformer-shared SHARED
   $<TARGET_OBJECTS:FfnLayer>
   $<TARGET_OBJECTS:FusedAttentionLayer>
   $<TARGET_OBJECTS:GptContextAttentionLayer>
+  $<TARGET_OBJECTS:StarCoderContextAttentionLayer>
   $<TARGET_OBJECTS:GptJ>
   $<TARGET_OBJECTS:GptJContextDecoder>
   $<TARGET_OBJECTS:GptJDecoder>
@@ -348,6 +350,11 @@ add_library(transformer-shared SHARED
   $<TARGET_OBJECTS:ParallelGptDecoderLayerWeight>
   $<TARGET_OBJECTS:ParallelGptTritonBackend>
   $<TARGET_OBJECTS:ParallelGptWeight>
+  $<TARGET_OBJECTS:ParallelStarCoder>
+  $<TARGET_OBJECTS:ParallelStarCoderContextDecoder>
+  $<TARGET_OBJECTS:ParallelStarCoderDecoder>
+  $<TARGET_OBJECTS:ParallelStarCoderDecoderLayerWeight>
+  $<TARGET_OBJECTS:ParallelStarCoderWeight>
   $<TARGET_OBJECTS:T5Common>
   $<TARGET_OBJECTS:T5Decoder>
   $<TARGET_OBJECTS:T5Decoding>
@@ -359,6 +366,7 @@ add_library(transformer-shared SHARED
   $<TARGET_OBJECTS:TensorParallelGeluFfnLayer>
   $<TARGET_OBJECTS:TensorParallelSiluFfnLayer>
   $<TARGET_OBJECTS:TensorParallelGptContextAttentionLayer>
+  $<TARGET_OBJECTS:TensorParallelStarCoderContextAttentionLayer>
   $<TARGET_OBJECTS:TensorParallelReluFfnLayer>
   $<TARGET_OBJECTS:TensorParallelUnfusedAttentionLayer>
   $<TARGET_OBJECTS:TopKSamplingLayer>
@@ -387,6 +395,7 @@ add_library(transformer-shared SHARED
   $<TARGET_OBJECTS:fpA_intB_gemm>
   $<TARGET_OBJECTS:gen_relative_pos_bias>
   $<TARGET_OBJECTS:gpt_kernels>
+  $<TARGET_OBJECTS:star_coder_kernels>
   $<TARGET_OBJECTS:int8_gemm>
   $<TARGET_OBJECTS:layernorm_int8_kernels>
   $<TARGET_OBJECTS:layernorm_kernels>
@@ -415,6 +424,8 @@ add_library(transformer-shared SHARED
   $<TARGET_OBJECTS:unfused_attention_kernels>
   $<TARGET_OBJECTS:word_list>
 )
+
+
 
 if (BUILD_MULTI_GPU)
 target_link_libraries(transformer-shared PUBLIC

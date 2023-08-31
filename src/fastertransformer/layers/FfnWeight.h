@@ -29,4 +29,10 @@ struct FfnWeight {
     DenseWeight<T1, T2> ia3_weight;
 };
 
+template<typename T>
+struct StarCoderFfnWeight {
+    StarCoderDenseWeight<T> dense_h_to_4h_weight;
+    StarCoderDenseWeight<T> dense_4h_to_h_weight;
+};
+
 }  // namespace fastertransformer

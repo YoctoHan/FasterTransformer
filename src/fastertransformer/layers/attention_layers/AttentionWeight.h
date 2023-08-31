@@ -30,4 +30,13 @@ struct AttentionWeight {
     DenseWeight<T1, T2> ia3_value_weight;
 };
 
+template<typename T>
+struct MQAWeight
+{
+    MQADenseWeight<T> query_weight;
+    MQADenseWeight<T> key_value_weight;
+    MQADenseWeight<T> dense_weight;
+};
+
+
 }  // namespace fastertransformer

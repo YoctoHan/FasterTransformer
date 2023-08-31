@@ -33,6 +33,10 @@ set(gpt_gemm_func_files
   gpt_gemm_func.cc
 )
 
+set(star_coder_gemm_func_files
+  star_coder_gemm_func.cc
+)
+
 set(xlnet_gemm_func_files
   xlnet_gemm_func.cc
 )
@@ -82,6 +86,14 @@ if (SPARSITY_SUPPORT)
 endif()
 set_property(TARGET gpt_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_property(TARGET gpt_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+
+add_library(star_coder_gemm_func STATIC ${star_coder_gemm_func_files})
+target_link_libraries(star_coder_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func cuda_utils logger)
+if (SPARSITY_SUPPORT)
+  target_link_libraries(star_coder_gemm_func PUBLIC -lcusparse -lcusparseLt)
+endif()
+set_property(TARGET star_coder_gemm_func PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET star_coder_gemm_func PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 add_library(xlnet_gemm_func STATIC ${xlnet_gemm_func_files})
 target_link_libraries(xlnet_gemm_func PUBLIC -lcublas -lcublasLt -lcudart gemm_func cuda_utils logger)
