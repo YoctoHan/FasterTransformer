@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 set(BUILD_SHARED_LIBS ON)
-cmake_minimum_required(VERSION 3.8 FATAL_ERROR) # for PyTorch extensions, version should be greater than 3.13
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR) # for PyTorch extensions, version should be greater than 3.13
 project(FasterTransformer LANGUAGES CXX CUDA)
 
 find_package(CUDA 10.2 REQUIRED)
@@ -21,6 +21,21 @@ if(${CUDA_VERSION_MAJOR} VERSION_GREATER_EQUAL "11")
   add_definitions("-DENABLE_BF16")
   message("CUDA_VERSION ${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR} is greater or equal than 11.0, enable -DENABLE_BF16 flag")
 endif()
+
+include(FetchContent)
+
+FetchContent_Declare(
+  repo-cutlass
+  GIT_REPOSITORY https://github.com/NVIDIA/cutlass.git
+  GIT_TAG        6f47420213f757831fae65c686aa471749fa8d60
+)
+
+set(CUTLASS_ENABLE_HEADERS_ONLY ON CACHE BOOL "Enable only the header library")
+
+FetchContent_MakeAvailable(repo-cutlass)
+
+set(CUTLASS_HEADER_DIR ${PROJECT_SOURCE_DIR}/3rdparty/cutlass/include)
+set(CUTLASS_EXTENSIONS_DIR ${PROJECT_SOURCE_DIR}/src/fastertransformer/cutlass_extensions/include)
 
 if((${CUDA_VERSION_MAJOR} VERSION_GREATER_EQUAL "11" AND ${CUDA_VERSION_MINOR} VERSION_GREATER_EQUAL "8") OR (${CUDA_VERSION_MAJOR} VERSION_GREATER_EQUAL "12"))
   add_definitions("-DENABLE_FP8")
@@ -102,7 +117,8 @@ if(USE_TRITONSERVER_DATATYPE)
   add_definitions("-DUSE_TRITONSERVER_DATATYPE")
 endif()
 
-set(CXX_STD "14" CACHE STRING "C++ standard")
+# set(CXX_STD "14" CACHE STRING "C++ standard")
+set(CXX_STD "17" CACHE STRING "C++ standard")
 
 set(CUDA_PATH ${CUDA_TOOLKIT_ROOT_DIR})
 
@@ -123,8 +139,11 @@ if(USE_NVTX)
 endif()
 
 # setting compiler flags
+# set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}")
+# set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -std=c++17")
+# set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall -ldl") # -Xptxas -v
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -std=c++17")
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wall -ldl") # -Xptxas -v
 
 set(SM_SETS 52 60 61 70 75 80 86 89 90)
@@ -301,7 +320,7 @@ link_directories(
 
 add_subdirectory(3rdparty)
 add_subdirectory(src)
-add_subdirectory(examples)
+# add_subdirectory(examples)
 
 add_subdirectory(tests)
 
@@ -319,10 +338,10 @@ add_library(transformer-shared SHARED
   $<TARGET_OBJECTS:BaseBeamSearchLayer>
   $<TARGET_OBJECTS:BaseSamplingLayer>
   $<TARGET_OBJECTS:BeamSearchLayer>
-  $<TARGET_OBJECTS:Bert>
-  $<TARGET_OBJECTS:BertLayerWeight>
-  $<TARGET_OBJECTS:BertTritonBackend>
-  $<TARGET_OBJECTS:BertWeight>
+  # $<TARGET_OBJECTS:Bert>
+  # $<TARGET_OBJECTS:BertLayerWeight>
+  # $<TARGET_OBJECTS:BertTritonBackend>
+  # $<TARGET_OBJECTS:BertWeight>
   $<TARGET_OBJECTS:DecoderCrossAttentionLayer>
   $<TARGET_OBJECTS:DecoderSelfAttentionLayer>
   $<TARGET_OBJECTS:DynamicDecodeLayer>
@@ -330,45 +349,45 @@ add_library(transformer-shared SHARED
   $<TARGET_OBJECTS:FusedAttentionLayer>
   $<TARGET_OBJECTS:GptContextAttentionLayer>
   $<TARGET_OBJECTS:StarCoderContextAttentionLayer>
-  $<TARGET_OBJECTS:GptJ>
-  $<TARGET_OBJECTS:GptJContextDecoder>
-  $<TARGET_OBJECTS:GptJDecoder>
-  $<TARGET_OBJECTS:GptJDecoderLayerWeight>
-  $<TARGET_OBJECTS:GptJTritonBackend>
-  $<TARGET_OBJECTS:GptJWeight>
-  $<TARGET_OBJECTS:GptNeoX>
-  $<TARGET_OBJECTS:GptNeoXContextDecoder>
-  $<TARGET_OBJECTS:GptNeoXDecoder>
-  $<TARGET_OBJECTS:GptNeoXDecoderLayerWeight>
-  $<TARGET_OBJECTS:GptNeoXTritonBackend>
-  $<TARGET_OBJECTS:GptNeoXWeight>
+  # $<TARGET_OBJECTS:GptJ>
+  # $<TARGET_OBJECTS:GptJContextDecoder>
+  # $<TARGET_OBJECTS:GptJDecoder>
+  # $<TARGET_OBJECTS:GptJDecoderLayerWeight>
+  # $<TARGET_OBJECTS:GptJTritonBackend>
+  # $<TARGET_OBJECTS:GptJWeight>
+  # $<TARGET_OBJECTS:GptNeoX>
+  # $<TARGET_OBJECTS:GptNeoXContextDecoder>
+  # $<TARGET_OBJECTS:GptNeoXDecoder>
+  # $<TARGET_OBJECTS:GptNeoXDecoderLayerWeight>
+  # $<TARGET_OBJECTS:GptNeoXTritonBackend>
+  # $<TARGET_OBJECTS:GptNeoXWeight>
   $<TARGET_OBJECTS:LinearAdapterLayer>
   $<TARGET_OBJECTS:OnlineBeamSearchLayer>
-  $<TARGET_OBJECTS:ParallelGpt>
-  $<TARGET_OBJECTS:ParallelGptContextDecoder>
-  $<TARGET_OBJECTS:ParallelGptDecoder>
-  $<TARGET_OBJECTS:ParallelGptDecoderLayerWeight>
-  $<TARGET_OBJECTS:ParallelGptTritonBackend>
-  $<TARGET_OBJECTS:ParallelGptWeight>
-  $<TARGET_OBJECTS:ParallelStarCoder>
-  $<TARGET_OBJECTS:ParallelStarCoderContextDecoder>
-  $<TARGET_OBJECTS:ParallelStarCoderDecoder>
-  $<TARGET_OBJECTS:ParallelStarCoderDecoderLayerWeight>
-  $<TARGET_OBJECTS:ParallelStarCoderWeight>
-  $<TARGET_OBJECTS:T5Common>
-  $<TARGET_OBJECTS:T5Decoder>
-  $<TARGET_OBJECTS:T5Decoding>
-  $<TARGET_OBJECTS:T5Encoder>
-  $<TARGET_OBJECTS:T5TritonBackend>
-  $<TARGET_OBJECTS:T5EncoderTritonBackend>
-  $<TARGET_OBJECTS:TensorParallelDecoderCrossAttentionLayer>
-  $<TARGET_OBJECTS:TensorParallelDecoderSelfAttentionLayer>
-  $<TARGET_OBJECTS:TensorParallelGeluFfnLayer>
-  $<TARGET_OBJECTS:TensorParallelSiluFfnLayer>
-  $<TARGET_OBJECTS:TensorParallelGptContextAttentionLayer>
-  $<TARGET_OBJECTS:TensorParallelStarCoderContextAttentionLayer>
-  $<TARGET_OBJECTS:TensorParallelReluFfnLayer>
-  $<TARGET_OBJECTS:TensorParallelUnfusedAttentionLayer>
+  # $<TARGET_OBJECTS:ParallelGpt>
+  # $<TARGET_OBJECTS:ParallelGptContextDecoder>
+  # $<TARGET_OBJECTS:ParallelGptDecoder>
+  # $<TARGET_OBJECTS:ParallelGptDecoderLayerWeight>
+  # $<TARGET_OBJECTS:ParallelGptTritonBackend>
+  # $<TARGET_OBJECTS:ParallelGptWeight>
+  # $<TARGET_OBJECTS:ParallelStarCoder>
+  # $<TARGET_OBJECTS:ParallelStarCoderContextDecoder>
+  # $<TARGET_OBJECTS:ParallelStarCoderDecoder>
+  # $<TARGET_OBJECTS:ParallelStarCoderDecoderLayerWeight>
+  # $<TARGET_OBJECTS:ParallelStarCoderWeight>
+  # $<TARGET_OBJECTS:T5Common>
+  # $<TARGET_OBJECTS:T5Decoder>
+  # $<TARGET_OBJECTS:T5Decoding>
+  # $<TARGET_OBJECTS:T5Encoder>
+  # $<TARGET_OBJECTS:T5TritonBackend>
+  # $<TARGET_OBJECTS:T5EncoderTritonBackend>
+  # $<TARGET_OBJECTS:TensorParallelDecoderCrossAttentionLayer>
+  # $<TARGET_OBJECTS:TensorParallelDecoderSelfAttentionLayer>
+  # $<TARGET_OBJECTS:TensorParallelGeluFfnLayer>
+  # $<TARGET_OBJECTS:TensorParallelSiluFfnLayer>
+  # $<TARGET_OBJECTS:TensorParallelGptContextAttentionLayer>
+  # $<TARGET_OBJECTS:TensorParallelStarCoderContextAttentionLayer>
+  # $<TARGET_OBJECTS:TensorParallelReluFfnLayer>
+  # $<TARGET_OBJECTS:TensorParallelUnfusedAttentionLayer>
   $<TARGET_OBJECTS:TopKSamplingLayer>
   $<TARGET_OBJECTS:TopPSamplingLayer>
   $<TARGET_OBJECTS:TransformerTritonBackend>

@@ -75,15 +75,6 @@ public:
         printf("\n============================= -END- =============================\n");
 
         ft::check_cuda_error(cublasLtCreate(&cublasltHandle_));
-        if (sparse) {
-#ifdef SPARSITY_ENABLED
-            CHECK_CUSPARSE(cusparseLtInit(&cusparseLtHandle_));
-#else
-            std::cout << "[WARNING] Sparsity support is not enabled. Will use dense GEMM instead. "
-                         "To enabled sparisty, please provide `-DSUPPORT_SPARITY` flag for compilation."
-                      << std::endl;
-#endif
-        }
         
         std::string sp_config_fname = "";
         cublas_algo_map_            = new ft::cublasAlgoMap(GEMM_CONFIG, sp_config_fname);
@@ -127,28 +118,6 @@ public:
         star_coder_weights_.post_word_embeddings            = get_ptr<T>(weights_[14 * layer_num_ + 2]);
         star_coder_weights_.position_encoding_table        = get_ptr<T>(weights_[14 * layer_num_ + 3]);
 
-#ifdef SPARSITY_ENABLED
-        if (sparse_) {
-            auto           stream        = at::cuda::getCurrentCUDAStream().stream();
-            cublasHandle_t cublas_handle = at::cuda::getCurrentCUDABlasHandle();
-            cublasSetStream(cublas_handle, stream);
-            ft::cublasMMWrapper cublas_wrapper = ft::cublasMMWrapper(cublas_handle,
-                                                                     cublasltHandle_,
-                                                                     cusparseLtHandle_,
-                                                                     stream,
-                                                                     cublas_algo_map_,
-                                                                     cublas_wrapper_mutex_,
-                                                                     nullptr);
-            // Here we need to pass hidden_units to compress weights as sparse BERT did,
-            // because GptWeights has no proper attribute value - like num_layer, dummy hidden_units,
-            // or inter_size. Let me update an initialization of GptWeights in future.
-            int hidden_units = head_num_ * size_per_head_;
-            for (size_t i = 0; i < layer_num_; ++i) {
-                gpt_weights_.decoder_layer_weights[i]->compress_weights(cublas_wrapper, hidden_units);
-            }
-            is_spmm_compressed = true;
-        }
-#endif
         ft::check_cuda_error(cudaGetDeviceProperties(&prop_, 0));
     }
 
@@ -216,37 +185,42 @@ public:
                                     false,             // with_relative_position_bias
                                     true);             // causal_mask
 
-        ft::ParallelStarCoder<T> star_coder = ft::ParallelStarCoder<T>(request_batch_size,
-                                                                       total_output_len,
-                                                                       max_input_length,
-                                                                       beam_width,
-                                                                       head_num_,
-                                                                       size_per_head_,
-                                                                       inter_size_,
-                                                                       layer_num_,
-                                                                       vocab_size_,
-                                                                       start_id_,
-                                                                       end_id_,
-                                                                       end_id_ + 1,                        // p/prompt tuning virtual token start id
-                                                                       ft::PromptLearningType::no_prompt,
-                                                                       star_coder_variant_params_,         // star_coder variant params --> meta opt
-                                                                       0.0f,                               // beam_search_diversity_rate,
-                                                                       1,                                  // top_k,
-                                                                       0.0,                                // top_p,
-                                                                       0,                                  // random_seed,
-                                                                       1.0f,                               // temperature,
-                                                                       1.0f,                               // len_penalty,
-                                                                       1.0f,                               // repetition_penalty,
-                                                                       tensor_para,
-                                                                       pipeline_para,
-                                                                       stream,
-                                                                       &cublas_wrapper,
-                                                                       &allocator,
-                                                                       false,
-                                                                       &prop_,
-                                                                       attention_type,
-                                                                       sparse_,
-                                                                       0);
+        size_t kv_head_num = 1;
+        StarCoderAttentionParams  attn_params;
+        int max_batch_size = 32; 
+        int max_contex_token_num = 8192;
+        int session_len = 2048;
+        int step_length = 1;
+        int cache_max_entry_count = 48;
+        int cache_chunk_size = 1;
+        int quant_policy = 0;
+        bool use_context_fmha = true;
+        bool is_free_buffer_after_forward = false;
+
+        ft::StarCoder<T> star_coder = ft::StarCoder<T>(head_num_,
+                                                       kv_head_num,
+                                                       size_per_head_,
+                                                       inter_size_,
+                                                       layer_num_,
+                                                       vocab_size_,
+                                                       attn_params,
+                                                       layernorm_eps,
+                                                       max_batch_size,
+                                                       max_contex_token_num,
+                                                       session_len,
+                                                       step_length,
+                                                       start_id_,
+                                                       end_id_,
+                                                       cache_max_entry_count,
+                                                       cache_chunk_size,
+                                                       use_context_fmha,
+                                                       star_coder_weights_,
+                                                       tensor_para,
+                                                       stream,
+                                                       &cublas_wrapper,
+                                                       &allocator,
+                                                       is_free_buffer_after_forward,
+                                                       &prop_);
         std::vector<uint32_t> output_seq_len(request_batch_size, total_output_len);
 
         std::unordered_map<std::string, ft::Tensor> input_tensors = std::unordered_map<std::string, ft::Tensor>{
@@ -261,44 +235,6 @@ public:
             {"output_seq_len",
              ft::Tensor{
                  ft::MEMORY_CPU, ft::TYPE_UINT32, std::vector<size_t>{request_batch_size}, output_seq_len.data()}}};
-        if (beam_width > 1 && beam_search_diversity_rate_opt.has_value()) {
-            input_tensors.insert(
-                {"beam_search_diversity_rate",
-                 convert_tensor<float>(beam_search_diversity_rate_opt.value(), ft::MemoryType::MEMORY_CPU)});
-        }
-        if (top_p_opt.has_value()) {
-            input_tensors.insert(
-                {"runtime_top_p", convert_tensor<float>(top_p_opt.value(), ft::MemoryType::MEMORY_CPU)});
-        }
-        if (top_k_opt.has_value()) {
-            input_tensors.insert(
-                {"runtime_top_k", convert_tensor<uint>(top_k_opt.value(), ft::MemoryType::MEMORY_CPU)});
-        }
-        if (temperature_opt.has_value()) {
-            input_tensors.insert(
-                {"temperature", convert_tensor<float>(temperature_opt.value(), ft::MemoryType::MEMORY_CPU)});
-        }
-        if (len_penalty_opt.has_value()) {
-            input_tensors.insert(
-                {"len_penalty", convert_tensor<float>(len_penalty_opt.value(), ft::MemoryType::MEMORY_CPU)});
-        }
-        if (repetition_penalty_opt.has_value()) {
-            input_tensors.insert({"repetition_penalty",
-                                  convert_tensor<float>(repetition_penalty_opt.value(), ft::MemoryType::MEMORY_CPU)});
-        }
-        if (random_seed_opt.has_value()) {
-            input_tensors.insert(
-                {"random_seed",
-                 convert_tensor<unsigned long long int>(random_seed_opt.value(), ft::MemoryType::MEMORY_CPU)});
-        }
-
-        bool return_context_cum_log_probs = false;
-        if (return_cum_log_probs == 2) {
-            return_context_cum_log_probs = true;
-            input_tensors.insert(
-                {"is_return_context_cum_log_probs",
-                 ft::Tensor{ft::MEMORY_CPU, ft::TYPE_BOOL, std::vector<size_t>{1}, &return_context_cum_log_probs}});
-        }
 
         std::unordered_map<std::string, ft::Tensor> output_tensors = std::unordered_map<std::string, ft::Tensor>{
             {"output_ids",
@@ -312,16 +248,8 @@ public:
                         std::vector<size_t>{request_batch_size, beam_width},
                         get_ptr<int>(sequence_lengths)}}};
 
-        if (return_cum_log_probs > 0) {
-            output_tensors.insert({"cum_log_probs",
-                                   ft::Tensor{ft::MEMORY_GPU,
-                                              ft::TYPE_FP32,
-                                              std::vector<size_t>{request_batch_size, beam_width},
-                                              get_ptr<float>(cum_log_probs)}});
-        }
-
         try {
-            star_coder.forward(&output_tensors, &input_tensors, &star_coder_weights_);
+            star_coder.forward(&output_tensors, &input_tensors);
         }
         catch (std::runtime_error& error) {
             std::cout << error.what();
@@ -354,7 +282,7 @@ private:
     std::mutex*                                     cublas_wrapper_mutex_;
     ft::cublasAlgoMap*                                   cublas_algo_map_;
     struct          cudaDeviceProp                                  prop_;
-    ft::ParallelStarCoderWeight<T>                    star_coder_weights_;
+    ft::StarCoderWeight<T>                            star_coder_weights_;
 }; // FTStarCoder
 
 class StarCoderOp: public th::jit::CustomClassHolder {
